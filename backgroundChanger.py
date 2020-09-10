@@ -1,40 +1,103 @@
 #Import modules
 import requests
+import random
+import ctypes
 import praw
+import sys
 import os
 
-#Create Reddit instance using credentials from praw.ini file
-reddit = praw.Reddit("WorldView", user_agent = "WorldView")
+def backgroundChanger():
 
-#List of the subreddits that the pictures come from, add or remove
-subreddits = ["wallpapers"]
+	#Create Reddit instance using credentials from praw.ini file
+	reddit = praw.Reddit("WorldView", user_agent = "WorldView")
 
-resolution = ["1920x1080"]
+	#List of the subreddits that the pictures come from, add or remove
+	subreddits = ["wallpaper", "wallpapers", "earthporn"]
 
-subreddit = reddit.subreddit('wallpapers')
+	#Resolution of the monitor to display the background on
+	desiredWidth = 1920
+	desiredHeight = 1080
 
-posts = subreddit.top(limit=1)
+	#Choose a random subreddit from the list of subreddits
+	subreddit = reddit.subreddit(random.choice(subreddits))
 
-for post in posts:
+	#Take the hottest post of the subreddit
+	posts = subreddit.hot(limit = 10)
 
-	url = (post.url)
+	#Loop through the top 10 posts in the subreddit
+	for post in posts:
 
-	file_name = url.split("/")
+		try:
 
-	if len(file_name) == 0:
+			width = post.preview['images'][0]['source']['width']
 
-		file_name = re.findall("/(.*?)", url)
+			height = post.preview['images'][0]['source']['height']
 
-	file_name = file_name[-1]
+			if width == desiredWidth and height == desiredHeight:
 
-	if "." not in file_name:
+				#Get post URL
+				url = (post.url)
 
-		file_name += ".jpg"
+				#Get the name of the post by splitting the URL
+				postName = url.split("/")
 
-	print(file_name)
+				#If the post name is empty find the name from the URL directly
+				if len(postName) == 0:
 
-reddit = requests.get(url)
+					postName = re.findall("/(.*?)", url)
 
-with open(file_name, "wb") as f:
+				#The last item in the array is the post ID and we will use it for the file name
+				fileName = postName[-1]
 
-	f.write(reddit.content)
+				#Add a .jpg to the end of the file name
+				if "." not in fileName:
+
+					fileName += ".jpg"
+
+				#Send message to console
+				print("Found post", post.title, "Downloading", fileName)
+
+				#Get from requests using the URL
+				reddit = requests.get(url)
+
+				#Create the path the file will be stored at
+				path = os.getcwd()
+
+				#Move path to background directory
+				path += "\\Backgrounds\\"
+
+				#Get a list of all backgrounds in the folder
+				backgrounds = os.listdir(os.getcwd() + "\\Backgrounds")
+
+				#Only keep 30 backgrounds downloaded at a time
+				if len(backgrounds) > 30:
+
+					os.remove(path + random.choice(backgrounds))
+
+				#Append the file name to the path to save the new file
+				path += fileName
+
+				#Save the file in the Backgrounds folder
+				with open(path, "wb") as f:
+
+					#Save the file
+					f.write(reddit.content)
+
+				print("Downloaded, and setting new background")
+
+				#Set the file as the desktop background
+				ctypes.windll.user32.SystemParametersInfoW(20, 0, path, 0)
+
+				sys.exit()
+
+			else:
+
+				print("Found", post.title, "however, not the correct resolution!\n")
+		
+		except AttributeError:
+
+			print("Post has no image, skipping!\n")
+		
+	backgroundChanger()
+			
+backgroundChanger()
